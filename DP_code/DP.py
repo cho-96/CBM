@@ -15,11 +15,8 @@ def Item_opt(N, min_cond,r,perc):
     min_cond: minimum condition of each product for counting 
     r: ratio for probability metrix 
     perc: percentile for counting 
-
-    
-    
     """
-
+    # P1 is one of the example probability matrix, this part should be done on hand
     P1 = np.array([0.69*r,0.31*r,0.00,0.00,0.00,
                    0.00,0.77*r,0.23*r,0.00,0.00,
                    0.00,0.00,0.92*r,0.08*r,0.00,

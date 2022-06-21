@@ -35,11 +35,11 @@ def Item_opt(N, min_cond,r,perc):
     return ratio_x, T
 #%%
 # example 
-N = np.array([500,200,100,300,700])
+N = np.array([2000,2000,2000,2000,2000])
 min_cond = 5 # recommend 5  
 r = 1 
 perc = 0.5
 _, T = Item_opt(N,min_cond,r,perc)
-
+print(T)
         
 # %%

@@ -13,17 +13,38 @@ from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, confusion_matrix
+import json
 # %%
-device = "cpu"
-MT = pd.read_csv('D:/Users/Cho/Projects/CBM/data/MT_label.csv')
-scaler = StandardScaler()
-X, y = scaler.fit_transform(np.array(MT.iloc[:,:-1])), np.array(MT.iloc[:,-1])
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+def level(colname,max_level): 
+    num_col = len(colname)
+    if num_col>=max_level:
+        final_level = max_level
+    else: 
+        final_level = num_col+1
+    return final_level
 
-X_train = X_train.reshape(-1,3)
-y_train = y_train.reshape(-1,1)-1
-X_test = X_test.reshape(-1,3)
-y_test = y_test.reshape(-1,1)-1
+sensor = 'MT'
+device = "cpu"
+with open("D:/Users/Cho/Projects/CBM/data/sensors.json") as st_json:
+    sensor_json = json.load(st_json)
+colname = sensor_json[sensor]['colname'] 
+threshold = sensor_json[sensor]['threshold'] 
+final_level = level(colname,5)
+print(final_level)
+
+#%%
+
+MT = pd.read_csv('D:/Users/Cho/Projects/CBM/data/MT_label_{}.csv'.format(sensor))
+col_len = len(MT.columns)-1
+scaler = StandardScaler()
+features_standardized = scaler.fit_transform(MT.iloc[:,:-1])
+
+X_train, X_test, y_train, y_test = train_test_split(features_standardized, MT.iloc[:,-1], test_size=0.2, random_state=42)
+
+X_train = np.array(X_train).reshape(-1,col_len)
+y_train = np.array(y_train).reshape(-1,1)-1
+X_test = np.array(X_test).reshape(-1,col_len)
+y_test = np.array(y_test).reshape(-1,1)-1
 
 #%%
 print(X_train.shape)
@@ -32,7 +53,7 @@ print(X_test.shape)
 print(y_test.shape)
 
 # %%
-learning_rate = 0.001
+
 batch = 100 
 
 class CustomDataset(Dataset):
@@ -67,10 +88,10 @@ train_dataset = CustomDataset()
 test_dataset = CustomDataset2()
 
 train_loader = torch.utils.data.DataLoader(
-    train_dataset, batch_size=batch
+    train_dataset, batch_size=batch, shuffle=True
 )
 test_loader = torch.utils.data.DataLoader(
-    test_dataset, batch_size=batch
+    test_dataset, batch_size=batch, shuffle=True
 )
 
 class MLP_classifier(nn.Module):
@@ -78,8 +99,8 @@ class MLP_classifier(nn.Module):
         super(MLP_classifier, self).__init__()
 
         self.fc1 = nn.Linear(input_size, hidden)
-        self.fc2 = nn.Linear(hidden, 2*hidden)
-        self.fc3 = nn.Linear(2*hidden, output_size)
+        self.fc2 = nn.Linear(hidden, hidden)
+        self.fc3 = nn.Linear(hidden, output_size)
 
 
     def forward(self, x):
@@ -90,18 +111,14 @@ class MLP_classifier(nn.Module):
 
         return x_3
     
-#%%
-X, y = next(iter(train_loader))
-print(X)
-print(torch.Tensor(y).to(torch.int64))
-#%%
-input_size = 3 
-output_size = 5 
-hidden = 500
 
-model = MLP_classifier(input_size, output_size,hidden).to(device)
-optimizer = optim.Adam(
-            model.parameters(), lr=0.0001, eps=1e-10)
+#%%
+input_size = col_len
+output_size = final_level
+hidden = 64
+
+model = MLP_classifier(input_size, output_size, hidden).to(device)
+
 criterion = nn.CrossEntropyLoss()
 
 def calculate_accuracy(y_pred, y):
@@ -110,9 +127,15 @@ def calculate_accuracy(y_pred, y):
     acc = correct.float() / y.shape[0]
     return acc
 
-n_epoch = 200
+n_epoch = 400
 
 for epoch in range(n_epoch):
+    if n_epoch<=100:
+        lr = 0.005
+    else: 
+        lr = 0.001
+    optimizer = optim.Adam(
+                model.parameters(), lr=lr, eps=1e-10)
 
     train_loss_total = 0
     test_loss_total = 0 
@@ -138,6 +161,7 @@ for epoch in range(n_epoch):
 
     if epoch%10 ==0:
         print(f'Epoch: {epoch+1:02} | Test Loss: {test_loss_avg:.4f}')
+
 # %%
 y_pred = torch.argmax(model(torch.FloatTensor(X_test).to(device)), dim=1)
 y_true = y_test.reshape(-1)
